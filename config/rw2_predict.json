@@ -1,0 +1,13 @@
+{
+    "obs":["data/major/night.obs"],
+    "eph":["data/major/hksc-night/hksc252l.25*"],
+    "gt":"data/major/night_fix.csv",
+    "img":"data/major/night_image",
+    "start_time":1757417190.008,
+    "end_time":1757417394.008,
+    "model":"model/image_rw1",
+    "mode":"predict",
+    "l_norm_std": [[0.5172861, 0.536735, 0.49708155], [0.1759425, 0.17349042, 0.1884363]],
+    "r_norm_std": [[0.50667065, 0.5304804, 0.47264934], [0.20916978, 0.20471895, 0.23223461]],
+    "f_norm_std": [[0.33968806, 0.3431861, 0.32200256], [0.32046676, 0.3227384, 0.31899413]]
+}
