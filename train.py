@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import pymap3d as p3d
 from model import VGPNet
-from torch.nn import MSELoss
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import os
@@ -28,21 +27,21 @@ parser.add_argument(
     default="config/train_img/rw4_train.json",
     help="Path to the config file",
 )
-parser.add_argument(
-    "--bool_gnss", action="store_true", help="Boolean flag for GNSS usage"
-)
-parser.add_argument(
-    "--bool_fisheye", action="store_true", help="Boolean flag for fisheye usage"
-)
-parser.add_argument(
-    "--bool_surrounding", action="store_true", help="Boolean flag for surrounding usage"
-)
-parser.add_argument(
-    "--bool_mask", action="store_true", help="Boolean flag for mask usage"
-)
-parser.add_argument(
-    "--bool_ccffm", action="store_true", help="Boolean flag for CCFFM usage"
-)
+# parser.add_argument(
+#     "--bool_gnss", action="store_true", help="Boolean flag for GNSS usage"
+# )
+# parser.add_argument(
+#     "--bool_fisheye", action="store_true", help="Boolean flag for fisheye usage"
+# )
+# parser.add_argument(
+#     "--bool_surrounding", action="store_true", help="Boolean flag for surrounding usage"
+# )
+# parser.add_argument(
+#     "--bool_mask", action="store_true", help="Boolean flag for mask usage"
+# )
+# parser.add_argument(
+#     "--bool_ccffm", action="store_true", help="Boolean flag for CCFFM usage"
+# )
 parser.add_argument(
     "--resume", type=int, default=0, help="Resume training from this epoch"
 )
@@ -88,16 +87,16 @@ if mode not in ["train", "predict"]:
 result = config_file.split("/")[-1].split(".json")[0]
 
 
-bool_gnss = args.bool_gnss
-bool_fisheye = args.bool_fisheye
-bool_ccffm = args.bool_ccffm
+# bool_gnss = args.bool_gnss
+# bool_fisheye = args.bool_fisheye
+# bool_ccffm = args.bool_ccffm
 
-prefix = "_"
-if bool_gnss:
-    prefix += "g"
-if bool_fisheye:
-    prefix += "f"
-prefix += "_ccffm" if bool_ccffm else ""
+prefix = ""
+# if bool_gnss:
+# prefix += "g"
+# if bool_fisheye:
+# prefix += "f"
+# prefix += "_ccffm" if bool_ccffm else ""
 
 now = datetime.datetime.now()
 prefix += f"_{now.strftime('%Y%m%d_%H%M%S')}"
@@ -140,9 +139,9 @@ if conf.get("gt", None):
         #     gt[6] = gt[6] + 18  # leap seconds
         # read ros time ref
         time_ref = pd.read_csv(conf["ref"], header=0)
-    elif dataset_name == "deep" or dataset_name == "medium" or dataset_name == "harsh":
-        gt = pd.read_csv(conf["gt"], skiprows=2, header=None, sep=" +", engine="python")
-        gt[0] = gt[0] + 18  # leap seconds
+    # elif dataset_name == "deep" or dataset_name == "medium" or dataset_name == "harsh":
+    # gt = pd.read_csv(conf["gt"], skiprows=2, header=None, sep=" +", engine="python")
+    # gt[0] = gt[0] + 18  # leap seconds
     elif dataset_name in ["rw1", "rw2", "rw3", "rw4", "rw5", "rw6"]:
         gt = pd.read_csv(
             conf["gt"],
@@ -155,7 +154,7 @@ if conf.get("gt", None):
 
 # load image infos
 img_fishs = []
-if conf.get("img", None) and (bool_fisheye):
+if conf.get("img", None):
     if dataset_name in ["rw4", "rw1"]:
         img_fish = os.listdir(conf["img"])
     # elif dataset_name in ["rw1", "klt3"]:
@@ -262,11 +261,11 @@ print(f"preprocess done, mean:{imean}, std:{istd}")
 net = VGPNet(
     torch.tensor(imean, dtype=torch.float32),
     torch.tensor(istd, dtype=torch.float32),
-    bool_gnss,
-    bool_fisheye,
+    # bool_gnss,
+    # bool_fisheye,
     # bool_surrounding,
     # bool_mask,
-    bool_ccffm,
+    # bool_ccffm,
 )
 net.double()
 net = net.to(DEVICE)
@@ -309,8 +308,8 @@ f_preprocess = (
             transforms.Normalize(mean=conf["f_norm_std"][0], std=conf["f_norm_std"][1]),
         ]
     )
-    if bool_fisheye
-    else None
+    # if bool_fisheye
+    # else None
 )
 
 batch_size = 128
@@ -343,22 +342,16 @@ for k in range(resume_ep, epoch):
                 np.array(ret["data"]["azel"]).reshape((-1, 2)), exclude, axis=0
             )
 
-            if conf.get("img", None) and bool_fisheye:
+            if conf.get("img", None):
                 img_row_f = img_fish_row_path_list[i]
-                img_f = (
-                    Image.open(img_row_f).resize((224, 224)) if bool_fisheye else None
-                )
-                img_f = (
-                    f_preprocess(img_f).unsqueeze(0).to(DEVICE, dtype=torch.float64)
-                    if bool_fisheye
-                    else None
-                )
+                img_f = Image.open(img_row_f).resize((224, 224))
+                img_f = f_preprocess(img_f).unsqueeze(0).to(DEVICE, dtype=torch.float64)
 
             in_data = torch.tensor(
                 np.hstack([SNR.reshape(-1, 1), azel[:, 1:], resd]), dtype=torch.float32
             ).to(DEVICE)
-            if bool_fisheye:
-                predict = net(in_data, img_f)  # [weight, bias]
+
+            predict = net(in_data, img_f)  # [weight, bias]
 
             weight = predict[0]
             bias = predict[1]
@@ -388,7 +381,12 @@ for k in range(resume_ep, epoch):
                 t.set_postfix({"batch_loss": batch_loss.item()})
                 batch_loss = 0
 
-        print("mean loss: ", epoch_loss.item() / len(obss), "epoch loss: ", epoch_loss.item())
+        print(
+            "mean loss: ",
+            epoch_loss.item() / len(obss),
+            "epoch loss: ",
+            epoch_loss.item(),
+        )
         vis_loss.append(epoch_loss.item() / len(obss))
     if k % 10 == 0 and k > 0:
         torch.save(

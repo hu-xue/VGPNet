@@ -1,8 +1,8 @@
 {
-    "obs":["data/major/day.obs"],
-    "eph":["data/major/hksc-day/hksc252i.25*"],
-    "gt":"data/major/day_fix.csv",
-    "img":"data/major/day_image",
+    "obs":["data/day.obs"],
+    "eph":["data/hksc-day/hksc252i.25*"],
+    "gt":"data/day_fix.csv",
+    "img":"data/day_image",
     "start_time":1757405666.704,
     "end_time":1757405848.704,
     "model":"model/image_rw4",

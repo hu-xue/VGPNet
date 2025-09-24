@@ -1,10 +1,7 @@
-from ast import arg
-from sympy import false
 import torch
 import pyrtklib as prl
 import rtk_util as util
 import json
-import sys
 import numpy as np
 import pandas as pd
 import pymap3d as p3d
@@ -26,24 +23,24 @@ parser.add_argument(
     default="config/train_img/klt3_train.json",
     help="Path to the config file",
 )
-parser.add_argument(
-    "--bool_gnss",
-    action="store_true",
-    help="Boolean flag for GNSS usage",
-    default=False,
-)
-parser.add_argument(
-    "--bool_fisheye",
-    action="store_true",
-    help="Boolean flag for fisheye usage",
-    default=False,
-)
-parser.add_argument(
-    "--bool_ccffm",
-    action="store_true",
-    help="Boolean flag for CCFFM usage",
-    default=False,
-)
+# parser.add_argument(
+#     "--bool_gnss",
+#     action="store_true",
+#     help="Boolean flag for GNSS usage",
+#     default=False,
+# )
+# parser.add_argument(
+#     "--bool_fisheye",
+#     action="store_true",
+#     help="Boolean flag for fisheye usage",
+#     default=False,
+# )
+# parser.add_argument(
+#     "--bool_ccffm",
+#     action="store_true",
+#     help="Boolean flag for CCFFM usage",
+#     default=False,
+# )
 parser.add_argument(
     "--model_name",
     type=str,
@@ -76,16 +73,16 @@ if mode not in ["train", "predict"]:
 result = config_file.split("/")[-1].split(".json")[0]  # klt1_predict klt2_predict
 result = result.split("_")[0]  # klt1 klt2
 
-bool_gnss = args.bool_gnss
-bool_fisheye = args.bool_fisheye
-bool_ccffm = args.bool_ccffm
+# bool_gnss = args.bool_gnss
+# bool_fisheye = args.bool_fisheye
+# bool_ccffm = args.bool_ccffm
 
-prefix = "_"
-if bool_gnss:
-    prefix += "g"
-if bool_fisheye:
-    prefix += "f"
-prefix += "_ccffm" if bool_ccffm else ""
+prefix = ""
+# if bool_gnss:
+#     prefix += "g"
+# if bool_fisheye:
+#     prefix += "f"
+# prefix += "_ccffm" if bool_ccffm else ""
 
 now = datetime.datetime.now()
 prefix += f"_{now.strftime('%Y%m%d_%H%M%S')}"
@@ -99,9 +96,9 @@ os.makedirs(result_path + "/bw_VGL", exist_ok=True)
 
 
 net = VGPNet(
-    bool_gnss=bool_gnss,
-    bool_fisheye=bool_fisheye,
-    bool_ccffm=bool_ccffm,
+    # bool_gnss=bool_gnss,
+    # bool_fisheye=bool_fisheye,
+    # bool_ccffm=bool_ccffm,
 )
 net.double()
 net.load_state_dict(
@@ -138,7 +135,7 @@ if conf.get("gt", None):
 
 # load image infos
 img_fishs = []
-if conf.get("img", None) and (args.bool_fisheye):
+if conf.get("img", None):
     if "rw" in dataset_name:
         img_fish = os.listdir(conf["img"])
     else:
@@ -171,20 +168,16 @@ for o in obss:
                         gt_row[9],
                     ]
                 )
-        if conf.get("img", None) and bool_fisheye:
+        if conf.get("img", None):
             img_fish_row = min(img_fishs, key=lambda x: abs(x - gt_time - 18))
             img_row_f_now = os.path.join(conf["img"], f"{img_fish_row:.6f}.{ends}")
             img_fishes.append(img_row_f_now)
 
-f_preprocess = (
-    transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=conf["f_norm_std"][0], std=conf["f_norm_std"][1]),
-        ]
-    )
-    if bool_fisheye
-    else None
+f_preprocess = transforms.Compose(
+    [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=conf["f_norm_std"][0], std=conf["f_norm_std"][1]),
+    ]
 )
 
 
@@ -231,19 +224,14 @@ with tqdm(range(len(obss)), ncols=80) as t:
             img_row_f_now = img_fishes[i]
             # img_f_nows.append(img_row_f_now)
 
-            img_f_now = (
-                Image.open(img_row_f_now).resize((224, 224)) if bool_fisheye else None
-            )
+            img_f_now = Image.open(img_row_f_now).resize((224, 224))
 
             img_f_now = (
                 f_preprocess(img_f_now).unsqueeze(0).to(DEVICE, dtype=torch.float64)
-                if bool_fisheye
-                else None
             )
 
         samples += in_data.shape[0]
-        if bool_fisheye:
-            predict = net(in_data, img_f_now)  # [weight, bias]
+        predict = net(in_data, img_f_now)  # [weight, bias]
 
         weight = predict[0]
         bias = predict[1]

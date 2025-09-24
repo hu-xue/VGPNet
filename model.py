@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 import torchvision.models as models
 
 
@@ -20,44 +19,36 @@ class VGPNet(nn.Module):
         self,
         imean=torch.tensor([0, 0, 0], dtype=torch.float64),
         istd=torch.tensor([1, 1, 1], dtype=torch.float64),
-        bool_gnss=True,
-        bool_fisheye=False,
-        bool_ccffm=False,
     ):
         super().__init__()
 
-        self.bool_gnss = bool_gnss
-        self.bool_fisheye = bool_fisheye
-        self.bool_ccffm = bool_ccffm
         self.ccffm_gate = nn.Parameter(torch.tensor(0.5))
 
         self.reg_dim = 0
 
-        if self.bool_gnss:
-            self.seq = torch.nn.Sequential(
-                StandardizeLayer(imean, istd),
-                nn.Linear(3, 64),
-                nn.ReLU(),
-                nn.Linear(64, 128),
-                nn.ReLU(),
-                nn.Linear(128, 64),
-            )
-            self.reg_dim += 64
+        self.seq = torch.nn.Sequential(
+            StandardizeLayer(imean, istd),
+            nn.Linear(3, 64),
+            nn.ReLU(),
+            nn.Linear(64, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+        )
+        self.reg_dim += 64
 
-        if self.bool_fisheye:
-            print("fisheye module")
-            self.fisheye_encoder = models.resnet18(weights="IMAGENET1K_V1")
-            # for name, param in self.fisheye_encoder.named_parameters():
-            #     if "layer4" in name:
-            #         param.requires_grad = True
-            #     else:
-            #         param.requires_grad = False
-            num_features_fisheye = self.fisheye_encoder.fc.in_features
-            self.fisheye_encoder.fc = nn.Identity()
-            self.fisheye_fc = nn.Sequential(
-                nn.Linear(num_features_fisheye, 64),
-            )
-            self.reg_dim += 64
+        print("fisheye module")
+        self.fisheye_encoder = models.resnet18(weights="IMAGENET1K_V1")
+        # for name, param in self.fisheye_encoder.named_parameters():
+        #     if "layer4" in name:
+        #         param.requires_grad = True
+        #     else:
+        #         param.requires_grad = False
+        num_features_fisheye = self.fisheye_encoder.fc.in_features
+        self.fisheye_encoder.fc = nn.Identity()
+        self.fisheye_fc = nn.Sequential(
+            nn.Linear(num_features_fisheye, 64),
+        )
+        self.reg_dim += 64
 
         self.wb_decoder = nn.Sequential(
             nn.ReLU(),
@@ -66,28 +57,24 @@ class VGPNet(nn.Module):
             nn.Linear(32, 2),
         )
 
-        if self.bool_ccffm:
-            self.ccffm = CCFFM(channels=64, heads=4)
+        self.ccffm = CCFFM(channels=64, heads=4)
 
     def forward(self, x, img):
         x = self.seq(x)  # N_sample 64
         N_sample = x.shape[0]
 
-        if self.bool_fisheye:
-            img_f = self.fisheye_fc(self.fisheye_encoder(img))  # 1 64
-            img_f = img_f.expand(N_sample, -1)  # N_sample 64
+        img_f = self.fisheye_fc(self.fisheye_encoder(img))  # 1 64
+        img_f = img_f.expand(N_sample, -1)  # N_sample 64
 
         # 有环境图像和鱼眼图像，CCFFM交互
-        if self.bool_fisheye:
-            if self.bool_ccffm:
-                fused_feat = self.ccffm(
-                    x.unsqueeze(-1).unsqueeze(-1),  # to B C H W, in this case: N_sample 64
-                    img_f.unsqueeze(-1).unsqueeze(-1),  # to B C H W, in this case: N_sample 64
-                )
-                fused_feat = fused_feat.view(N_sample, -1)  # N_sample 128
-                fused_feat = torch.tanh(fused_feat)
-                fused_feat = self.ccffm_gate * fused_feat + (1 - self.ccffm_gate) * x
-                feature = fused_feat
+        fused_feat = self.ccffm(
+            x.unsqueeze(-1).unsqueeze(-1),  # to B C H W, in this case: N_sample 64
+            img_f.unsqueeze(-1).unsqueeze(-1),  # to B C H W, in this case: N_sample 64
+        )
+        fused_feat = fused_feat.view(N_sample, -1)  # N_sample 128
+        fused_feat = torch.tanh(fused_feat)
+        fused_feat = self.ccffm_gate * fused_feat + (1 - self.ccffm_gate) * x
+        feature = fused_feat
 
         x = self.wb_decoder(feature)
 
@@ -99,6 +86,7 @@ class VGPNet(nn.Module):
 
 class MHSA(nn.Module):
     """Multi-Head Self-Attention, 接收 q,k,v"""
+
     def __init__(self, channels, heads=4):
         super(MHSA, self).__init__()
         self.channels = channels
@@ -111,10 +99,12 @@ class MHSA(nn.Module):
         head_dim = C // self.heads
 
         def reshape(x):
-            return x.view(B, N, self.heads, head_dim).transpose(1, 2)  # [B, heads, N, head_dim]
+            return x.view(B, N, self.heads, head_dim).transpose(
+                1, 2
+            )  # [B, heads, N, head_dim]
 
         q, k, v = map(reshape, (q, k, v))
-        scores = torch.matmul(q, k.transpose(-2, -1)) / (head_dim ** 0.5)
+        scores = torch.matmul(q, k.transpose(-2, -1)) / (head_dim**0.5)
         attn = F.softmax(scores, dim=-1)
         out = torch.matmul(attn, v)  # [B, heads, N, head_dim]
 
@@ -124,6 +114,7 @@ class MHSA(nn.Module):
 
 class CrossChannelAttention(nn.Module):
     """双向 Cross-Attention"""
+
     def __init__(self, channels, heads=4):
         super(CrossChannelAttention, self).__init__()
         self.channels = channels
@@ -141,12 +132,12 @@ class CrossChannelAttention(nn.Module):
         q2, k2, v2 = map(reshape, (q2, k2, v2))
 
         # x1 attend to x2
-        scores12 = torch.matmul(q1, k2.transpose(-2, -1)) / (head_dim ** 0.5)
+        scores12 = torch.matmul(q1, k2.transpose(-2, -1)) / (head_dim**0.5)
         attn12 = F.softmax(scores12, dim=-1)
         out1 = torch.matmul(attn12, v2)
 
         # x2 attend to x1
-        scores21 = torch.matmul(q2, k1.transpose(-2, -1)) / (head_dim ** 0.5)
+        scores21 = torch.matmul(q2, k1.transpose(-2, -1)) / (head_dim**0.5)
         attn21 = F.softmax(scores21, dim=-1)
         out2 = torch.matmul(attn21, v1)
 
@@ -159,11 +150,14 @@ class CrossChannelAttention(nn.Module):
 
 class CCFFM(nn.Module):
     """Cross-Channel Feature Fusion Module"""
+
     def __init__(self, channels, heads=4):
         super(CCFFM, self).__init__()
         self.channels = channels
         self.heads = heads
-        self.qkv_proj = nn.ModuleList([nn.Linear(channels, channels) for _ in range(6)])  # 2x(q,k,v)
+        self.qkv_proj = nn.ModuleList(
+            [nn.Linear(channels, channels) for _ in range(6)]
+        )  # 2x(q,k,v)
 
         self.mhsa_gnss = MHSA(channels, heads)
         self.mhsa_fisheye = MHSA(channels, heads)
@@ -197,7 +191,6 @@ class CCFFM(nn.Module):
         # reshape 回 feature map
         out = out.transpose(1, 2).view(B, C, H, W)
         return out
-
 
 
 if __name__ == "__main__":

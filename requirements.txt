@@ -1,8 +1,8 @@
-pytorch
+pytorch==2.7.1
 numpy
 pyrtklib
 pymap3d
 pandas
 tqdm
 matplotlib
-tasgnss
+pyrtklib
