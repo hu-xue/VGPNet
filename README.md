@@ -25,7 +25,7 @@ This is the official implementation of the paper [VGPNet: a Vision-aided GNSS Po
 
 3. Download the pre-trained models and datasets as specified in the paper.
 
-    The processed GNSS and fisheye image datasets can be found at: [BaiduNet](https://pan.baidu.com/s/1MynuZFrHSqqAIWCJCd6o_Q?pwd=bra3)
+    The processed GNSS and fisheye image datasets can be found at: [BaiduNet](https://pan.baidu.com/s/1tOnJjV6vcdCXzLw6WfNHgQ?pwd=cywn)
     
     Download the processed datasets and place them in the `data/` directory. See the structure below:
     ```
