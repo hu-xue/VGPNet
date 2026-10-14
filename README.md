@@ -6,6 +6,23 @@ This is the official implementation of the paper [VGPNet: a Vision-aided GNSS Po
 
 - 🎉 (2025.09) We have released the code and dataset for VGPNet. Please refer to the instructions below to set up the environment and run the code.
 
+## Bib
+If VGPNet is helpful, please cite:
+
+```bib
+@ARTICLE{xue2025vgpnet,
+  author={Xue, Hu and Zhu, Hao and Wang, Lejun and Kuok, Sin-Chi and Li, Bijun and Zhang, Hongjuan and Li, Guojun and Leung, Henry},
+  journal={IEEE Transactions on Instrumentation and Measurement}, 
+  title={VGPNet: A Vision-Aided GNSS Positioning Framework With Cross-Channel Feature Fusion for Urban Canyons}, 
+  year={2025},
+  volume={74},
+  number={},
+  pages={1-13},
+  keywords={Global navigation satellite system;Satellites;Feature extraction;Accuracy;Visualization;Buildings;Three-dimensional displays;Robustness;Position measurement;Image segmentation;Deep learning (DL);feature fusion;global navigation satellite system (GNSS);positioning},
+  doi={10.1109/TIM.2025.3635311}}
+
+```
+
 ## Requirements
 - Python 3.10
 - PyTorch 2.7.1
